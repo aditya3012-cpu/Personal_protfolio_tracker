@@ -205,7 +205,6 @@ def main():
         # Display portfolio summary
         with header_placeholder.container():
             st.markdown(f"**Last Updated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            st.markdown(f"**Data Source:** Yahoo Finance (NSE Real-time Data)")
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -398,11 +397,6 @@ def main():
         st.info("2. Try refreshing the page")
         st.info("3. Market data might be delayed or unavailable during non-trading hours")
         st.info("4. Ensure you have installed yfinance: `pip install yfinance`")
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("**Note:** Data provided by Yahoo Finance. Prices may have a slight delay.")
-    st.markdown("**Requirements:** `pip install streamlit plotly yfinance pandas numpy`")
     
     # Auto-refresh logic
     if auto_refresh:
