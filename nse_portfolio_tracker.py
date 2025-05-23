@@ -5,7 +5,7 @@ import plotly.express as px
 from datetime import datetime, timedelta
 import time
 import numpy as np
-from nsetools import Nse
+import yfinance as yf
 import requests
 import json
 
@@ -16,59 +16,74 @@ st.set_page_config(
     layout="wide"
 )
 
-# Portfolio configuration with correct NSE symbols
+# Portfolio configuration with Yahoo Finance symbols for NSE stocks
 PORTFOLIO_STOCKS = {
-    'CDSL': {'name': 'Central Depository Services Ltd', 'quantity': 1},
-    'MAZAGON': {'name': 'Mazagon Dock Shipbuilders Ltd', 'quantity': 1},
-    'GRSE': {'name': 'Garden Reach Shipbuilders & Engineers Ltd', 'quantity': 1},
-    'COCHINSHIP': {'name': 'Cochin Shipyard Ltd', 'quantity': 1}
+    'CDSL.NS': {'name': 'Central Depository Services Ltd', 'quantity': 1, 'symbol': 'CDSL'},
+    'MAZAGON.NS': {'name': 'Mazagon Dock Shipbuilders Ltd', 'quantity': 1, 'symbol': 'MAZAGON'},
+    'GRSE.NS': {'name': 'Garden Reach Shipbuilders & Engineers Ltd', 'quantity': 1, 'symbol': 'GRSE'},
+    'COCHINSHIP.NS': {'name': 'Cochin Shipyard Ltd', 'quantity': 1, 'symbol': 'COCHINSHIP'}
 }
 
-# Initialize NSE object
-@st.cache_resource
-def get_nse():
-    """Initialize NSE connection"""
-    try:
-        nse = Nse()
-        return nse
-    except Exception as e:
-        st.error(f"Failed to initialize NSE connection: {e}")
-        return None
-
 @st.cache_data(ttl=30)  # Cache for 30 seconds
-def get_stock_quote(_nse, symbol):  # Added underscore to prevent hashing
-    """Get stock quote from NSE"""
+def get_stock_quote(symbol):
+    """Get stock quote using yfinance"""
     try:
-        quote = _nse.get_quote(symbol)
-        return quote
+        ticker = yf.Ticker(symbol)
+        
+        # Get current data
+        info = ticker.info
+        hist = ticker.history(period="2d")
+        
+        if len(hist) >= 2:
+            current_price = hist['Close'].iloc[-1]
+            prev_close = hist['Close'].iloc[-2]
+            change = current_price - prev_close
+            change_pct = (change / prev_close) * 100
+            
+            day_high = hist['High'].iloc[-1]
+            day_low = hist['Low'].iloc[-1]
+            volume = hist['Volume'].iloc[-1]
+            
+            return {
+                'lastPrice': current_price,
+                'previousClose': prev_close,
+                'change': change,
+                'pChange': change_pct,
+                'dayHigh': day_high,
+                'dayLow': day_low,
+                'totalTradedVolume': volume
+            }
+        elif len(hist) == 1:
+            # If only one day of data available
+            current_price = hist['Close'].iloc[-1]
+            return {
+                'lastPrice': current_price,
+                'previousClose': current_price,
+                'change': 0,
+                'pChange': 0,
+                'dayHigh': hist['High'].iloc[-1],
+                'dayLow': hist['Low'].iloc[-1],
+                'totalTradedVolume': hist['Volume'].iloc[-1]
+            }
+        return None
     except Exception as e:
         st.warning(f"Error fetching quote for {symbol}: {e}")
         return None
 
 @st.cache_data(ttl=60)  # Cache for 60 seconds
-def get_historical_data(_nse, symbol):  # Added underscore to prevent hashing
+def get_historical_data(symbol):
     """Get historical data for charts"""
     try:
-        # Get top gainers/losers to validate connection
-        data = _nse.get_top_gainers()
-        if data:
-            # Create sample historical data for visualization
-            # Since nsetools doesn't provide historical data, we'll simulate it
-            current_time = datetime.now()
-            dates = [current_time - timedelta(minutes=x*5) for x in range(20, 0, -1)]
-            
-            # Get current price from quote
-            quote = get_stock_quote(_nse, symbol)
-            if quote:
-                base_price = float(quote['lastPrice'])
-                # Generate realistic price movements
-                price_changes = np.random.normal(0, base_price * 0.002, 20)  # 0.2% volatility
-                prices = [base_price + sum(price_changes[:i+1]) for i in range(20)]
-                
-                return pd.DataFrame({
-                    'timestamp': dates,
-                    'price': prices
-                })
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period="1d", interval="5m")
+        
+        if not hist.empty:
+            # Reset index to get timestamp as a column
+            hist = hist.reset_index()
+            return pd.DataFrame({
+                'timestamp': hist['Datetime'],
+                'price': hist['Close']
+            })
         return None
     except Exception as e:
         st.warning(f"Error fetching historical data for {symbol}: {e}")
@@ -97,16 +112,19 @@ def format_indian_currency(amount):
     else:
         return f"₹{amount:,.2f}"
 
+def test_connection():
+    """Test Yahoo Finance connection"""
+    try:
+        test_ticker = yf.Ticker("RELIANCE.NS")
+        test_data = test_ticker.history(period="1d")
+        return not test_data.empty
+    except:
+        return False
+
 def main():
     # Title and header
     st.title("📈 NSE Stock Portfolio Tracker")
-    st.markdown("Real-time tracking of CDSL, Mazagon Dock, GRSE, and Cochin Shipyard using NSE Tools")
-    
-    # Initialize NSE
-    nse = get_nse()
-    if not nse:
-        st.error("Unable to connect to NSE. Please check your internet connection and try again.")
-        return
+    st.markdown("Real-time tracking of CDSL, Mazagon Dock, GRSE, and Cochin Shipyard using Yahoo Finance")
     
     # Sidebar controls
     st.sidebar.header("Settings")
@@ -120,16 +138,12 @@ def main():
         get_historical_data.clear()
         st.rerun()
     
-    # NSE connection status
-    st.sidebar.subheader("NSE Connection Status")
-    try:
-        test_data = nse.get_top_gainers()
-        if test_data and len(test_data) > 0:
-            st.sidebar.success("✅ NSE Connected")
-        else:
-            st.sidebar.warning("⚠️ NSE Connection Issues")
-    except:
-        st.sidebar.error("❌ NSE Disconnected")
+    # Connection status
+    st.sidebar.subheader("Data Connection Status")
+    if test_connection():
+        st.sidebar.success("✅ Yahoo Finance Connected")
+    else:
+        st.sidebar.error("❌ Connection Issues")
     
     # Create placeholders
     header_placeholder = st.empty()
@@ -148,7 +162,7 @@ def main():
         status_text.text(f"Fetching data for {stock_info['name']}...")
         progress_bar.progress((i + 1) / len(PORTFOLIO_STOCKS))
         
-        quote = get_stock_quote(nse, symbol)
+        quote = get_stock_quote(symbol)
         
         if quote:
             try:
@@ -162,7 +176,7 @@ def main():
                 low = float(quote.get('dayLow', current_price))
                 volume = quote.get('totalTradedVolume', 'N/A')
                 
-                portfolio_data[symbol] = {
+                portfolio_data[stock_info['symbol']] = {
                     'name': stock_info['name'],
                     'current_price': current_price,
                     'prev_close': prev_close,
@@ -173,7 +187,7 @@ def main():
                     'high': high,
                     'low': low,
                     'volume': volume,
-                    'symbol': symbol
+                    'symbol': stock_info['symbol']
                 }
                 fetch_success += 1
                 
@@ -193,7 +207,7 @@ def main():
         # Display portfolio summary
         with header_placeholder.container():
             st.markdown(f"**Last Updated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            st.markdown(f"**Data Source:** NSE Tools (Live NSE Data)")
+            st.markdown(f"**Data Source:** Yahoo Finance (NSE Real-time Data)")
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -292,6 +306,40 @@ def main():
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
         
+        # Historical price chart
+        st.subheader("Intraday Price Movement")
+        chart_symbol = st.selectbox("Select stock for intraday chart:", list(portfolio_data.keys()))
+        
+        if chart_symbol:
+            # Find the corresponding Yahoo Finance symbol
+            yf_symbol = None
+            for yf_sym, info in PORTFOLIO_STOCKS.items():
+                if info['symbol'] == chart_symbol:
+                    yf_symbol = yf_sym
+                    break
+            
+            if yf_symbol:
+                hist_data = get_historical_data(yf_symbol)
+                if hist_data is not None and not hist_data.empty:
+                    fig_line = go.Figure()
+                    fig_line.add_trace(go.Scatter(
+                        x=hist_data['timestamp'],
+                        y=hist_data['price'],
+                        mode='lines',
+                        name=f'{chart_symbol} Price',
+                        line=dict(color='blue', width=2)
+                    ))
+                    
+                    fig_line.update_layout(
+                        title=f"{portfolio_data[chart_symbol]['name']} - Intraday Price Movement",
+                        xaxis_title="Time",
+                        yaxis_title="Price (₹)",
+                        height=400
+                    )
+                    st.plotly_chart(fig_line, use_container_width=True)
+                else:
+                    st.info("No intraday data available for this stock")
+        
         # Detailed table
         with table_placeholder.container():
             st.subheader("Detailed Portfolio View")
@@ -309,7 +357,7 @@ def main():
                     'Day Low (₹)': f"{data['low']:.2f}",
                     'Quantity': data['quantity'],
                     'Value (₹)': f"{data['value']:.2f}",
-                    'Volume': str(data['volume']) if data['volume'] != 'N/A' else 'N/A'
+                    'Volume': f"{data['volume']:,}" if data['volume'] != 'N/A' else 'N/A'
                 })
             
             df = pd.DataFrame(table_data)
@@ -318,10 +366,9 @@ def main():
             def style_changes(val):
                 if 'Change' in val.name and '₹' in str(val):
                     try:
-                        num_val = float(str(val).replace('₹', '').replace('+', '').replace('%', '').replace(',', ''))
                         if '+' in str(val):
                             return 'background-color: #d4edda; color: #155724'
-                        elif num_val < 0:
+                        elif '-' in str(val):
                             return 'background-color: #f8d7da; color: #721c24'
                     except:
                         pass
@@ -347,15 +394,17 @@ def main():
             st.metric("Avg Change %", f"{avg_change:.2f}%")
     
     else:
-        st.error("Unable to fetch data for any stocks. Please check NSE connection and try again.")
+        st.error("Unable to fetch data for any stocks. Please check your internet connection and try again.")
         st.info("💡 **Troubleshooting Tips:**")
         st.info("1. Check your internet connection")
         st.info("2. Try refreshing the page")
-        st.info("3. NSE data might be unavailable during market holidays")
+        st.info("3. Market data might be delayed or unavailable during non-trading hours")
+        st.info("4. Ensure you have installed yfinance: `pip install yfinance`")
     
     # Footer
     st.markdown("---")
-    st.markdown("**Note:** Data provided by NSE Tools. Prices are real-time during market hours.")
+    st.markdown("**Note:** Data provided by Yahoo Finance. Prices may have a slight delay.")
+    st.markdown("**Requirements:** `pip install streamlit plotly yfinance pandas numpy`")
     
     # Auto-refresh logic
     if auto_refresh:
