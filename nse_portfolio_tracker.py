@@ -123,9 +123,7 @@ def test_connection():
 
 def main():
     # Title and header
-    st.title("📈 NSE Stock Portfolio Tracker")
-    st.markdown("Real-time tracking of CDSL, Mazagon Dock, GRSE, and Cochin Shipyard using Yahoo Finance")
-    
+    st.title("📈 NSE Stock Portfolio Tracker")    
     # Sidebar controls
     st.sidebar.header("Settings")
     auto_refresh = st.sidebar.checkbox("Auto Refresh", value=False)
