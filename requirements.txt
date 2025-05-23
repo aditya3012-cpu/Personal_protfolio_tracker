@@ -4,7 +4,4 @@ requests
 streamlit
 yfinance
 plotly
-nsetools
-datetime
-time
-json
+
