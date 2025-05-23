@@ -228,7 +228,7 @@ def main():
                 )
             with col4:
                 st.metric(
-                    "Total Invested",
+                    "Prev Day Close",
                     f"₹{portfolio_metrics['total_invested']:,.2f}"
                 )
         
