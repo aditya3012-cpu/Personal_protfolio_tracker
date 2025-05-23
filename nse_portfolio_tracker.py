@@ -18,10 +18,10 @@ st.set_page_config(
 
 # Portfolio configuration with correct NSE symbols
 PORTFOLIO_STOCKS = {
-    'CDSL': {'name': 'Central Depository Services Ltd', 'quantity': 4000},
-    'MAZAGON': {'name': 'Mazagon Dock Shipbuilders Ltd', 'quantity': 500},
-    'GRSE': {'name': 'Garden Reach Shipbuilders & Engineers Ltd', 'quantity': 500},
-    'COCHINSHIP': {'name': 'Cochin Shipyard Ltd', 'quantity': 600}
+    'CDSL': {'name': 'Central Depository Services Ltd', 'quantity': 1},
+    'MAZAGON': {'name': 'Mazagon Dock Shipbuilders Ltd', 'quantity': 1},
+    'GRSE': {'name': 'Garden Reach Shipbuilders & Engineers Ltd', 'quantity': 1},
+    'COCHINSHIP': {'name': 'Cochin Shipyard Ltd', 'quantity': 1}
 }
 
 # Initialize NSE object
@@ -36,21 +36,21 @@ def get_nse():
         return None
 
 @st.cache_data(ttl=30)  # Cache for 30 seconds
-def get_stock_quote(nse, symbol):
+def get_stock_quote(_nse, symbol):  # Added underscore to prevent hashing
     """Get stock quote from NSE"""
     try:
-        quote = nse.get_quote(symbol)
+        quote = _nse.get_quote(symbol)
         return quote
     except Exception as e:
         st.warning(f"Error fetching quote for {symbol}: {e}")
         return None
 
 @st.cache_data(ttl=60)  # Cache for 60 seconds
-def get_historical_data(nse, symbol):
+def get_historical_data(_nse, symbol):  # Added underscore to prevent hashing
     """Get historical data for charts"""
     try:
         # Get top gainers/losers to validate connection
-        data = nse.get_top_gainers()
+        data = _nse.get_top_gainers()
         if data:
             # Create sample historical data for visualization
             # Since nsetools doesn't provide historical data, we'll simulate it
@@ -58,7 +58,7 @@ def get_historical_data(nse, symbol):
             dates = [current_time - timedelta(minutes=x*5) for x in range(20, 0, -1)]
             
             # Get current price from quote
-            quote = get_stock_quote(nse, symbol)
+            quote = get_stock_quote(_nse, symbol)
             if quote:
                 base_price = float(quote['lastPrice'])
                 # Generate realistic price movements
