@@ -18,10 +18,10 @@ st.set_page_config(
 
 # Portfolio configuration with Yahoo Finance symbols for NSE stocks
 PORTFOLIO_STOCKS = {
-    'CDSL.NS': {'name': 'Central Depository Services Ltd', 'quantity': 4000, 'symbol': 'CDSL'},
+    'CDSL.NS': {'name': 'Central Depository Services Ltd', 'quantity': 2500, 'symbol': 'CDSL'},
     'MAZDOCK.NS': {'name': 'Mazagon Dock Shipbuilders Ltd', 'quantity': 500, 'symbol': 'MAZDOCK'},
     'GRSE.NS': {'name': 'Garden Reach Shipbuilders & Engineers Ltd', 'quantity': 500, 'symbol': 'GRSE'},
-    'COCHINSHIP.NS': {'name': 'Cochin Shipyard Ltd', 'quantity': 600, 'symbol': 'COCHINSHIP'}
+    'COCHINSHIP.NS': {'name': 'Cochin Shipyard Ltd', 'quantity': 500, 'symbol': 'COCHINSHIP'}
 }
 
 @st.cache_data(ttl=30)  # Cache for 30 seconds
